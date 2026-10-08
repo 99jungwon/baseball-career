@@ -17,6 +17,16 @@
     field:{name:'수비와 주루',subtitle:'팀에 필요한 한 걸음',icon:'◇',effect:{field:3,speed:2,energy:-6},mini:true},
     rest:{name:'회복에 집중',subtitle:'길게 뛰기 위한 하루',icon:'☀',effect:{energy:24,morale:4}}
   };
+  // Season plans drive automatic training; the rotation repeats every four rounds.
+  const plans={
+    contact:{name:'컨택 중심',desc:'타격 케이지 위주, 선구안과 장타 보완',order:['contact','contact','eye','power']},
+    power:{name:'장타 중심',desc:'웨이트 위주, 컨택 보완',order:['power','power','contact','eye']},
+    eye:{name:'선구안 중심',desc:'투구 분석 위주, 컨택 보완',order:['eye','contact','eye','power']},
+    field:{name:'수비·주루 중심',desc:'수비와 주루 위주, 타격 보완',order:['field','field','contact','eye']},
+    balanced:{name:'균형 성장',desc:'네 가지 훈련을 차례로',order:['contact','power','eye','field']}
+  };
+  const specialRounds=[1,5];
+  const keyEvents=['intro','slump','patience','opportunity','veteran','race'];
   function clamp(n,min=0,max=100){return Math.max(min,Math.min(max,n));}
   function create(name,type='contact',seed=Date.now(),profile={}){
     if(!types[type]) type='contact';
@@ -70,8 +80,9 @@
   }
   function trainingEffect(s,id,score=0){
     const t=trainings[id],effect={...t.effect};
-    if(id==='field'){effect.speed+=Math.floor(clamp(Number(score)||0)/40);}
-    if(id==='contact'){score=clamp(Number(score)||0,0,100);effect.contact+=Math.floor(score/30);if(score>=70)effect.morale=3;}
+    const special=score>0&&isSpecial(s);
+    if(id==='field'){const sc=clamp(Number(score)||0);effect.speed+=special?Math.floor(sc/20):Math.floor(sc/40);if(special)effect.field+=Math.floor(sc/33);}
+    if(id==='contact'){score=clamp(Number(score)||0,0,100);effect.contact+=special?2*Math.floor(score/25):Math.floor(score/30);if(score>=70)effect.morale=3;}
     if(s.age>=32){for(const k of ['contact','power','field','speed'])if(effect[k])effect[k]=Math.max(1,Math.floor(effect[k]*(s.age>=40?.65:.8)));}
     if(id==='rest'&&s.age>=35)effect.energy=s.age>=40?20:22;
     if(id!=='rest'){
@@ -79,6 +90,31 @@
       for(const k of Object.keys(effect))effect[k]=Math.sign(effect[k])*Math.max(1,Math.round(Math.abs(effect[k])*factor));
     }
     return effect;
+  }
+  function isSpecial(s){return ['train','event','ready','result'].includes(s.phase)&&specialRounds.includes(s.round);}
+  function plan(s){s.plan??={focus:s.type==='power'?'power':s.type==='contact'?'contact':'balanced',intensity:'normal'};if(!plans[s.plan.focus])s.plan.focus='balanced';return s.plan;}
+  function setPlan(s,focus,intensity){const p=plan(s);if(plans[focus])p.focus=focus;if(['light','normal','hard'].includes(intensity))p.intensity=intensity;return p;}
+  function planTraining(s){
+    const p=plan(s),floor=p.intensity==='hard'?55:p.intensity==='light'?40:45;
+    if(s.stats.energy<floor)return 'rest';
+    return s.advice?.recommend==='rest'&&s.stats.energy<60?'rest':plans[p.focus].order[s.round%4];
+  }
+  function isKeyEvent(ev){return !!ev&&keyEvents.includes(ev.id);}
+  // Plays rounds on the season plan and stops where the player's decision matters.
+  function autoUntilKey(s){
+    const played=[];let guard=0,reason='season-end';
+    while(['train','event','ready','result'].includes(s.phase)&&guard++<60){
+      if(s.phase==='train'){
+        // Pressing continue on a special round skips it; later special rounds still stop.
+        const mark=`${s.year}-${s.round}`;if(isSpecial(s)&&s.specialSeen!==mark){s.specialSeen=mark;if(guard>1){reason='special';break;}}
+        s.trainingIntensity=plan(s).intensity;train(s,planTraining(s));
+      }
+      else if(s.phase==='event'){const ev=event(s);if(isKeyEvent(ev)){reason='event';break;}choose(s,ev.options[0].id);}
+      else if(s.phase==='ready')simulate(s);
+      else{played.push(s.history.at(-1));advance(s);}
+    }
+    const line={games:0,ab:0,h:0,hr:0,rbi:0};for(const r of played)for(const k of Object.keys(line))line[k]+=r.line[k];
+    return{reason:s.phase==='offseason'||s.phase==='retired'?'season-end':reason,rounds:played.length,line,wins:played.reduce((n,r)=>n+r.wins,0),losses:played.reduce((n,r)=>n+r.losses,0)};
   }
   function train(s,id,score=0){
     if(s.phase!=='train'||!trainings[id])return false;
@@ -225,7 +261,7 @@
   }
   function autoSeason(s){
     let guard=0;while(['train','event','ready','result'].includes(s.phase)&&guard++<40){
-      if(s.phase==='train'){const skills=['contact','power','eye','field'];train(s,s.stats.energy<45?'rest':s.advice?.recommend||skills[(s.round+s.year)%4]);}
+      if(s.phase==='train'){s.trainingIntensity=plan(s).intensity;train(s,planTraining(s));}
       else if(s.phase==='event'){const ev=event(s);choose(s,ev.options[0].id);}
       else if(s.phase==='ready')simulate(s);else advance(s);
     }return s.phase;
@@ -258,6 +294,8 @@
     if(s.age>=30)add('veteran',2,'김도현 · 감독','오래 뛰기 위한 역할 조정','지명타자를 병행하면 수비 부담을 줄일 수 있어. 타석에서의 경험은 여전히 필요하다.','rest',[option('dh','지명타자를 병행한다','이번 시즌 구간 회복 +2 · 체력 +5',{energy:5},{flag:'dh'}),option('fieldleader','수비에서도 팀을 이끈다','수비 +2 · 신뢰 +3',{field:2,trust:3})]);
     if(st.energy>=40)add('teammate',1,s.age>=29?'이준서 · 후배':'윤태오 · 주장',s.age>=29?'후배가 훈련을 부탁했다':'같이 훈련하면 보이는 것들','함께 수비 호흡을 맞추자는 제안이 왔다. 개인 훈련과 팀 훈련 사이에서 시간을 나눠보자.','field',[option('mentor','함께 훈련한다','수비 +3 · 신뢰 +4',{field:3,trust:4},{flag:'mentor'}),option('solo','개인 타격에 집중한다','컨택 +2 · 장타 +2 · 체력 -3',{contact:2,power:2,energy:-3})]);
     if(s.rival?.ab>=20)add('rival',2,'이도윤 · 고교 동기','동기의 소식이 도착했다',`이도윤은 이번 시즌 ${s.rival.h}안타, ${s.rival.hr}홈런. “우리 각자 있는 곳에서 끝까지 해보자.” 비교가 자극이 될 수도, 부담이 될 수도 있다.`,'contact',[option('inspired','자극을 훈련에 쓴다','컨택 +2 · 자신감 +3',{contact:2,morale:3}),option('mypace','내 페이스에 집중한다','체력 +5 · 선구안 +1',{energy:5,eye:1})]);
+    const race=titleRace(s);
+    if(race){s.roundEvent={id:'race',tag:'TITLE RACE',person:'김도현 · 감독',title:`${race.title} 경쟁, 마지막 스퍼트`,body:`현재 ${race.label} ${race.rank}위(${race.value}). ${race.rival?esc(race.rival)+'와의 경쟁, ':''}남은 건 마지막 두 구간이다. 개인 기록과 팀 순위 사이에서 무엇을 우선할까?`,options:[option('chase','기록에 욕심을 낸다','이번 구간 안타 확률 +2%p · 체력 -6 · 자신감 +4',{energy:-6,morale:4},{performance:.02}),option('team','팀 승리를 먼저 생각한다','팀 승리 확률 +3%p · 감독 신뢰 +5',{trust:5},{teamBonus:.03})]};s.advice=null;return;}
     if(s.round===0&&s.year===1){s.roundEvent={id:'intro',tag:'FIRST CHAPTER',person:'박성훈 · 타격 코치',title:'어떤 타자가 되고 싶니?',body:'첫 시즌이 시작된다. 네가 잘하는 것을 먼저 보여주자. 타격에서 무엇을 우선할지 정해보자.',options:[option('patient','출루로 기회를 만들겠습니다','선구안 +3 · 신뢰 +4',{eye:3,trust:4}),option('slugger','장타로 존재감을 보여준다','장타 +4 · 자신감 +4',{power:4,morale:4})]};return;}
     const urgent=st.energy<25;
     if(!pool.length&&!urgent)return;
@@ -268,6 +306,15 @@
     s.advice=chosen;s.roundEvent=chosen;s.adviceMemory[chosen.id]=now;
     if(s.previousAdvice&&now-s.previousAdvice.tick<=2&&last){const improved=last.line.h/Math.max(1,last.line.ab)>=.27;s.advice.followup=`지난번 “${s.previousAdvice.choice}” 이후 ${improved?'타석 내용이 좋아졌어.':'아직 결과가 아쉽지만 한 구간만으로 단정하지는 말자.'}`;}
   }
+  // At 9월 초 a top-3 spot in any batting title becomes a decision point.
+  function titleRace(s){
+    if(s.round!==6||!s.leagueState||s.league!=='국내 프로')return null;
+    const metrics=[['avg','타격왕','타율',v=>v.toFixed(3).replace(/^0/,'')],['hr','홈런왕','홈런',v=>v+'개'],['h','최다안타왕','안타',v=>v+'개'],['rbi','타점왕','타점',v=>v+'개'],['sb','도루왕','도루',v=>v+'개'],['ops','OPS 1위','OPS',v=>v.toFixed(3)]];
+    let best=null;
+    for(const [metric,title,label,fmt] of metrics){const list=L.leaders(s.leagueState,metric),me=list.find(p=>p.id==='user');if(!me||me.rank>3)continue;if(!best||me.rank<best.rank){const other=list.find(p=>p.id!=='user');best={metric,title,label,rank:me.rank,value:fmt(me.value),rival:other?`${me.rank===1?'2위':'1위'} ${other.name}(${fmt(other.value)})`:''};}}
+    return best;
+  }
+  function esc(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function event(s){return s.systems===3?s.roundEvent:legacyEvent(s);}
   function migrate(s){
     if(!valid(s))return null;
@@ -325,6 +372,6 @@
     apply(s,{energy:100-s.stats.energy,morale:5});resetSeason(s,news);return news;
   }
   function valid(s){return !!(s&&s.version===2&&types[s.type]&&Number.isInteger(s.age)&&s.age>=(s.startAge||19)&&s.year===s.age-(s.startAge||19)+1&&Array.isArray(s.seasons)&&Array.isArray(s.awards)&&Number.isInteger(s.round)&&s.round>=0&&s.round<=8&&['train','event','ready','result','offseason','retired'].includes(s.phase)&&((s.round===8)===['offseason','retired'].includes(s.phase))&&typeof s.name==='string'&&Number.isInteger(s.seed)&&s.stats&&Object.keys(labels).every(k=>Number.isFinite(s.stats[k])&&s.stats[k]>=0&&s.stats[k]<=100)&&s.totals&&['games','pa','ab','h','doubles','triples','hr','bb','rbi','sb'].every(k=>Number.isFinite(s.totals[k])&&s.totals[k]>=0)&&s.team&&Number.isFinite(s.team.wins)&&Number.isFinite(s.team.losses)&&s.flags&&Array.isArray(s.history)&&Array.isArray(s.journal)&&(!['ready','result'].includes(s.phase)||s.pending?.option)&& (s.phase!=='result'||s.history.length>0));}
-  const api={clubs:L.clubs,positions:L.positions,KEY,labels,stages,months,types,trainings,create,train,event,choose,simulate,advance,rates,ending,valid,offseason,autoSeason,market,offers,scout,role,potentialGrade,canReroll,reroll,limit,career,money,preview,trainingEffect,fitness,gamesPerRound,stageLabel,handLabel,migrate,prepareRound,routeOffers,postingStatus,transferOptions};
+  const api={clubs:L.clubs,positions:L.positions,KEY,labels,stages,months,types,trainings,create,train,event,choose,simulate,advance,rates,ending,valid,offseason,autoSeason,autoUntilKey,plans,plan,setPlan,planTraining,isSpecial,isKeyEvent,specialRounds,market,offers,scout,role,potentialGrade,canReroll,reroll,limit,career,money,preview,trainingEffect,fitness,gamesPerRound,stageLabel,handLabel,migrate,prepareRound,routeOffers,postingStatus,transferOptions};
   if(typeof module!=='undefined')module.exports=api;else root.CareerEngine=api;
 })(typeof window!=='undefined'?window:globalThis);

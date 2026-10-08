@@ -1,6 +1,6 @@
-# 더 라스트 이닝 — v0.4
+# 더 라스트 이닝 — v0.6
 
-18세 고교 선수부터 은퇴까지, 훈련과 선택으로 기록을 쌓는 타자 육성 데모. 다음 작업은 docs/HANDOFF.md의 마지막 v0.5 절(잠재력·밸런스)과 후속 아이디어를 먼저 읽으세요.
+18세 고교 선수부터 은퇴까지, 훈련과 선택으로 기록을 쌓는 타자 육성 데모. 이어서 작업할 때는 **[docs/NEXT_SESSION.md](docs/NEXT_SESSION.md)** 를 먼저 읽으세요. 상세 인계는 docs/HANDOFF.md에 있습니다. 공개 배포판: https://99jungwon.github.io/baseball-career/
 
 ## 실행
 

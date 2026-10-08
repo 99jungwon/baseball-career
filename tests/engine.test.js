@@ -155,3 +155,19 @@ capped.stats.contact=E.limit(capped,'contact');assert.equal(E.preview(capped,slo
 // Old saves without potential get ceilings no lower than current ability.
 const unrolled=E.create('옛 저장','power',55);delete unrolled.potential;unrolled.stats.contact=97;assert.ok(E.migrate(unrolled).potential.contact>=97);
 console.log('PASS: potential determinism / reroll window / ceiling slowdown / breakthrough limit / legacy migration.');
+
+// Season plan + auto-until-key: stops at special rounds, key events and season end only.
+const planned=E.create('계획','power',2024,{school:true});
+assert.equal(E.plan(planned).focus,'power');E.setPlan(planned,'contact','light');assert.deepEqual([planned.plan.focus,planned.plan.intensity],['contact','light']);
+let stop=E.autoUntilKey(planned);
+assert.ok(['special','event'].includes(stop.reason));if(stop.reason==='special')assert.ok(E.isSpecial(planned)&&planned.round===1&&planned.phase==='train');
+let guardStops=0;while(['train','event','ready','result'].includes(planned.phase)&&guardStops++<20){
+  if(planned.phase==='event'){assert.ok(E.isKeyEvent(E.event(planned)));E.choose(planned,E.event(planned).options[0].id);}
+  stop=E.autoUntilKey(planned);
+}
+assert.equal(stop.reason,'season-end');assert.equal(planned.phase,'offseason');assert.equal(planned.history.length,8);
+// Special rounds pay more for the same drill score.
+const sp=E.create('특훈','contact',8,{school:true});sp.potential.contact=99;
+const normal=E.trainingEffect(sp,'contact',100).contact;sp.round=1;const special=E.trainingEffect(sp,'contact',100).contact;
+assert.ok(special>normal,`special ${special} > normal ${normal}`);
+console.log('PASS: season plan / auto-until-key stops / special training reward.');
