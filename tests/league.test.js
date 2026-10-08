@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const E=require('./engine'),L=require('./league'),C=require('./collection');
+const E=require('../js/engine'),L=require('../js/league'),C=require('../js/collection');
 for(let seed=1;seed<=30;seed++){
   const s=E.create('리그검증','balanced',seed,{position:Object.keys(E.positions)[seed%9]});
   const a=JSON.parse(JSON.stringify(s));E.autoSeason(s);E.autoSeason(a);

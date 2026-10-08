@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const E=require('./engine');
+const E=require('../js/engine');
 // A seed makes regressions reproducible without altering the live game's RNG.
 for(let seed=1;seed<=100;seed++){
   const s=E.create('테스트','contact',seed);
@@ -34,6 +34,7 @@ const s=E.create('수동 플레이','power',42);
 assert.equal(E.simulate(s),false);
 assert.equal(E.choose(s,'patient'),false);
 assert.equal(E.train(s,'invalid'),false);
+s.potential.contact=99; // far below the ceiling: full training effect
 const before=s.stats.contact;
 E.train(s,'contact',100);
 assert.equal(s.stats.contact,before+6);
@@ -140,3 +141,17 @@ posting.totals={games:120,pa:500,ab:440,h:120,doubles:20,triples:2,hr:15,bb:60,r
 assert.ok(E.transferOptions(posting).some(o=>o.id==='return-kbo'));assert.ok(E.offseason(posting,'return-kbo',false));assert.equal(posting.league,'국내 프로');assert.equal(posting.contract,2);assert.ok(E.valid(posting));
 const minorReturn=E.create('미국 복귀','contact',92);minorReturn.level='minor';minorReturn.league='마이너';E.autoSeason(minorReturn);assert.ok(E.routeOffers(minorReturn).some(o=>o.id==='domestic'));assert.ok(E.offseason(minorReturn,'domestic',false));assert.equal(minorReturn.league,'국내 프로');
 console.log('PASS: KBO posting eligibility / club rejection / no USA offer / MLB transfer; contract-bound MLB return; minor return to KBO.');
+
+// Potential: same seed rolls the same ceilings; reroll only before the first training.
+const potA=E.create('잠재력','balanced',777,{school:true}),potB=E.create('잠재력','balanced',777,{school:true});
+assert.deepEqual(potA.potential,potB.potential);
+for(const k of ['contact','power','eye','speed','field'])assert.ok(potA.potential[k]>=potA.stats[k]+6&&potA.potential[k]<=99);
+const rerolled=E.reroll(potA,778);assert.ok(rerolled&&rerolled.rerolls===1&&rerolled.number===potA.number&&rerolled.position===potA.position);
+E.train(potA,'contact');assert.equal(E.canReroll(potA),false);assert.equal(E.reroll(potA,779),null);
+// Past the ceiling growth slows, and stops at the breakthrough limit.
+const capped=E.create('한계','contact',31,{school:true});capped.potential.contact=capped.stats.contact;
+const slow=E.trainingEffect(capped,'contact');assert.ok(E.preview(capped,slow).contact<slow.contact);
+capped.stats.contact=E.limit(capped,'contact');assert.equal(E.preview(capped,slow).contact,0);
+// Old saves without potential get ceilings no lower than current ability.
+const unrolled=E.create('옛 저장','power',55);delete unrolled.potential;unrolled.stats.contact=97;assert.ok(E.migrate(unrolled).potential.contact>=97);
+console.log('PASS: potential determinism / reroll window / ceiling slowdown / breakthrough limit / legacy migration.');

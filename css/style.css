@@ -100,3 +100,14 @@ select,#player-position{max-width:100%;min-width:0;padding:12px;border:1px solid
 }
 .player-card>p,.hero-copy p,.choice strong,.event-body,.advice-card p{word-break:keep-all;overflow-wrap:anywhere}
 @media(max-width:760px){.season-track .done span{color:#36542b}.season-track small{color:#526052}.training-card em{position:static;order:5;margin-top:8px}.training-card:last-child .training-effects{flex-wrap:wrap}.player-card{column-gap:8px}.player-card>p{font-size:12px}.heading-actions .text-button{font-size:11px}}
+
+.scout-report{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.scout-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:var(--ink)}
+.scout-rows{display:grid;gap:6px;margin:10px 0}
+.scout-row{display:grid;grid-template-columns:48px 28px 1fr;gap:8px;align-items:center;font-size:13px;color:var(--ink)}
+.scout-row small{font-size:12px;color:#55604f}
+.grade{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;border-radius:4px;font-size:12px;font-weight:800;background:#e7eadf;color:#3c4a3a}
+.grade-S{background:#d56b43;color:#fff}.grade-A{background:#193f35;color:#fff}.grade-B{background:#5d7a5a;color:#fff}
+.scout-note{font-size:12px;line-height:1.6;color:#55604f;margin:6px 0 0}
+.scout-note strong{color:#d56b43}
+.reroll{margin-top:10px}

@@ -1,12 +1,12 @@
 # 더 라스트 이닝 — v0.4
 
-18세 고교 선수부터 은퇴까지, 훈련과 선택으로 기록을 쌓는 타자 육성 데모. 다음 작업은 HANDOFF.md의 마지막 v0.4 절과 후속 아이디어를 먼저 읽으세요.
+18세 고교 선수부터 은퇴까지, 훈련과 선택으로 기록을 쌓는 타자 육성 데모. 다음 작업은 docs/HANDOFF.md의 마지막 v0.5 절(잠재력·밸런스)과 후속 아이디어를 먼저 읽으세요.
 
 ## 실행
 
 이 폴더에서 `node server.js`, 브라우저에서 http://localhost:4173/ . 외부 패키지 설치나 빌드는 필요 없습니다.
 
-검증: `node engine.test.js`, `node league.test.js`.
+검증: `node tests/engine.test.js`, `node tests/league.test.js`.
 
 ## 현재 기능
 
@@ -31,6 +31,6 @@
 
 실제 구단명만 사용하며 선수·성적·진학·계약·시상·일정은 게임용입니다. 공식 KBO 규정이나 실제 선수 로스터를 재현하지 않습니다. 리그 기록실은 KBO 타자 전용이며 투수/미국/학교 전체 리그는 없습니다. NPC 독립 커리어, 라인업 대전, 로그인, 서버 저장과 배포는 미구현입니다. 통산은 고교·대학·마이너·프로를 모두 포함합니다.
 
-상세 가상 시상·포스트시즌 규칙과 검증은 HANDOFF.md, VERIFICATION.md에 있습니다. 선수 DNA, 아이콘, 로그인·DB·배포는 후속 작업으로 기록했습니다.
+상세 가상 시상·포스트시즌 규칙과 검증은 docs/HANDOFF.md, docs/VERIFICATION.md에 있습니다. 선수 DNA, 아이콘, 로그인·DB·배포는 후속 작업으로 기록했습니다.
 
 구단명 참고: [KBO 구단 소개](https://www.koreabaseball.com/Kbo/League/TeamInfo.aspx).
